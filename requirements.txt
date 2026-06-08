@@ -1,5 +1,5 @@
 streamlit
 gspread
 google-auth
-playwright==1.44.0
+playwright==1.49.0
 playwright-stealth
