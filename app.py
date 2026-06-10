@@ -1325,7 +1325,7 @@ def region_panel(region: str, predefined_sectors: list, default_currency: str = 
     # Checkbox state keys
     cb_key = f"cb_{region}"
     if cb_key not in st.session_state:
-        st.session_state[cb_key] = {f"{o}-{d}": True for o, d, _ in predefined_sectors}
+        st.session_state[cb_key] = {f"{o}-{d}": False for o, d, _ in predefined_sectors}
 
     if select_all:
         for k in st.session_state[cb_key]:
@@ -1347,7 +1347,7 @@ def region_panel(region: str, predefined_sectors: list, default_currency: str = 
         with cols[idx % n_cols]:
             checked = st.checkbox(
                 label,
-                value=st.session_state[cb_key].get(label, True),
+                value=st.session_state[cb_key].get(label, False),
                 key=f"chk_{region}_{label}",
                 disabled=is_running,
             )
@@ -1408,23 +1408,67 @@ def region_panel(region: str, predefined_sectors: list, default_currency: str = 
 
     with col_dates:
         today = date.today()
-        cs, ce = st.columns(2)
-        with cs:
-            start_date = st.date_input("Start date", value=today + timedelta(days=1),
-                                       min_value=today, key=f"sd_{region}",
-                                       disabled=is_running)
-        with ce:
-            end_date   = st.date_input("End date",   value=today + timedelta(days=7),
-                                       min_value=today, key=f"ed_{region}",
-                                       disabled=is_running)
-        if end_date < start_date:
-            st.error("End date must be on or after start date.")
-            dates_ok = False
-            selected_dates = []
-        else:
-            selected_dates = date_range(start_date, end_date)
-            dates_ok = True
-            st.caption(f"📅 {len(selected_dates)} day(s): {selected_dates[0]} → {selected_dates[-1]}")
+
+        date_mode = st.radio(
+            "Date mode",
+            ["Date range", "Specific dates"],
+            key=f"date_mode_{region}",
+            horizontal=True,
+            disabled=is_running,
+            label_visibility="collapsed",
+        )
+
+        if date_mode == "Date range":
+            cs, ce = st.columns(2)
+            with cs:
+                start_date = st.date_input("Start date", value=today + timedelta(days=1),
+                                           min_value=today, key=f"sd_{region}",
+                                           disabled=is_running)
+            with ce:
+                end_date   = st.date_input("End date",   value=today + timedelta(days=7),
+                                           min_value=today, key=f"ed_{region}",
+                                           disabled=is_running)
+            if end_date < start_date:
+                st.error("End date must be on or after start date.")
+                dates_ok = False
+                selected_dates = []
+            else:
+                selected_dates = date_range(start_date, end_date)
+                dates_ok = True
+                st.caption(f"📅 {len(selected_dates)} day(s): {selected_dates[0]} → {selected_dates[-1]}")
+
+        else:  # Specific dates
+            # Multi date picker via text input (comma-separated)
+            specific_key = f"specific_dates_{region}"
+            raw_dates = st.text_input(
+                "Enter dates (DD-MM-YYYY, comma separated)",
+                placeholder="e.g. 10-06-2026, 12-06-2026, 24-06-2026",
+                key=specific_key,
+                disabled=is_running,
+            )
+            parsed_specific = []
+            parse_errors = []
+            if raw_dates.strip():
+                for part in raw_dates.replace("\n", ",").split(","):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    try:
+                        parsed_specific.append(datetime.strptime(part, "%d-%m-%Y").date())
+                    except ValueError:
+                        parse_errors.append(part)
+            if parse_errors:
+                st.error(f"Could not parse: {', '.join(parse_errors)} — use DD-MM-YYYY format")
+                dates_ok = False
+                selected_dates = []
+            elif not parsed_specific:
+                st.caption("Enter at least one date above.")
+                dates_ok = False
+                selected_dates = []
+            else:
+                selected_dates = sorted(set(parsed_specific))
+                dates_ok = True
+                st.caption(f"📅 {len(selected_dates)} date(s): {', '.join(str(d) for d in selected_dates)}")
 
     with col_tab:
         config_sheet_key = f"config_{region.lower()}_sheet"
