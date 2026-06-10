@@ -876,10 +876,23 @@ def push_to_sheets(results: dict, worksheet_name: str,
 
     # Send everything in one batch
     try:
-        spreadsheet.batch_update({"requests": requests})
-        _print(f"  ✅ Formatting applied ({len(requests)} operations batched).")
+        # Split large batch requests into chunks to avoid API limitations
+        batch_size = 50  # Google Sheets API has limits on batch request size
+        for i in range(0, len(requests), batch_size):
+            chunk = requests[i:i + batch_size]
+            spreadsheet.batch_update({"requests": chunk})
+        _print(f"  ✅ Formatting applied ({len(requests)} operations batched in chunks).")
     except Exception as e:
         _print(f"  ⚠️  Batch format failed: {e}")
+        # Fallback: try smaller chunks if the initial batch fails
+        try:
+            smaller_batch_size = 20
+            for i in range(0, len(requests), smaller_batch_size):
+                chunk = requests[i:i + smaller_batch_size]
+                spreadsheet.batch_update({"requests": chunk})
+            _print(f"  ✅ Formatting applied with smaller chunks ({len(requests)} operations).")
+        except Exception as e2:
+            _print(f"  ❌  Final batch format failed: {e2}")
 
     _print(f"  ✅ Wrote {len(pasted)} fares in matrix layout to '{worksheet_name}'.")
     return {"pasted": pasted, "unmapped": []}
