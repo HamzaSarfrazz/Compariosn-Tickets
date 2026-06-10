@@ -1466,9 +1466,9 @@ def region_panel(region: str, predefined_sectors: list, default_currency: str = 
                 dates_ok = False
                 selected_dates = []
             else:
-                selected_dates = sorted(set(parsed_specific))
+                selected_dates = [d.strftime("%Y-%m-%d") for d in sorted(set(parsed_specific))]
                 dates_ok = True
-                st.caption(f"📅 {len(selected_dates)} date(s): {', '.join(str(d) for d in selected_dates)}")
+                st.caption(f"📅 {len(selected_dates)} date(s): {', '.join(selected_dates)}")
 
     with col_tab:
         config_sheet_key = f"config_{region.lower()}_sheet"
