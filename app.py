@@ -304,6 +304,22 @@ def date_range(start: date, end: date) -> list[str]:
         for i in range((end - start).days + 1)
     ]
 
+def get_most_common_time(times_list):
+    """Find the most frequently occurring time in a list."""
+    if not times_list:
+        return "LOADS"
+
+    time_counts = {}
+    for time in times_list:
+        time_counts[time] = time_counts.get(time, 0) + 1
+
+    # Find time with maximum count
+    max_count = max(time_counts.values())
+    most_common_times = [t for t, count in time_counts.items() if count == max_count]
+
+    # If tie, return first one (or could implement more sophisticated tie-breaking)
+    return most_common_times[0]
+
 
 def parse_manual_sectors(text: str, default_currency: str = "PKR") -> list[tuple]:
     """
@@ -646,9 +662,12 @@ def push_to_sheets(results: dict, worksheet_name: str,
                 if key not in flights_info:
                     flights_info[key] = {
                         "prefix": prefix,
-                        "time": fl.get("departure_time") or "LOADS",
+                        "times": [],  # Store all times to find the most common one
                         "fares": {},
                     }
+                # Always collect times
+                if fl.get("departure_time"):
+                    flights_info[key]["times"].append(fl.get("departure_time"))
                 if fl.get("fares"):
                     best = min(fl["fares"].values())
                     old = flights_info[key]["fares"].get(d)
@@ -732,7 +751,12 @@ def push_to_sheets(results: dict, worksheet_name: str,
                 continue
             style = AIRLINE_STYLES.get(p, DEFAULT_STYLE)
             for fk in airlines[p]:
-                row4.append(flights_info[fk]["time"])
+                # Get most common time for this flight
+                if flights_info[fk]["times"]:
+                    most_common_time = get_most_common_time(flights_info[fk]["times"])
+                    row4.append(most_common_time)
+                else:
+                    row4.append("LOADS")
                 all_formats.append((current_row, c, current_row, c, {
                     "horizontalAlignment": "CENTER",
                     "verticalAlignment": "MIDDLE",
